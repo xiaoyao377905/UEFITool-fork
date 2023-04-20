@@ -14,7 +14,7 @@ WITHOUT WARRANTIES OR REPRESENTATIONS OF ANY KIND, EITHER EXPRESS OR IMPLIED.
 #include "ffsdumper.h"
 
 #include <fstream>
-
+STATIC UString basePath;
 USTATUS FfsDumper::dump(const UModelIndex & root, const UString & path, const DumpMode dumpMode, const UINT8 sectionType, const UString & guid)
 {
     dumped = false;
@@ -27,7 +27,7 @@ USTATUS FfsDumper::dump(const UModelIndex & root, const UString & path, const Du
     }
 
     currentPath = path;
-
+    basePath = path;
     USTATUS result = recursiveDump(root, path, dumpMode, sectionType, guid);
     if (result) {
         printf("Error %zu returned from recursiveDump (directory \"%s\").\n", result, (const char*)path.toLocal8Bit());
@@ -194,7 +194,22 @@ USTATUS FfsDumper::recursiveDump(const UModelIndex & index, const UString & path
             }
 
             UString name = usprintf("%d %s", i, (useText ? model->text(childIndex) : model->name(childIndex)).toLocal8Bit());
-            fixFileName (name, false);
+            if (name.length() > 10) {
+                UString newName;
+                for (int i = 0; i < 10; i++) {
+                    newName += name[i];
+                }
+                UString pathMapLog = usprintf("%s/path_map.log", basePath.toLocal8Bit());
+                std::ofstream file(pathMapLog, std::ofstream::app);
+                if (file) {
+                    UString log_str = usprintf("cut %s/%s into %s/%s\n", path.toLocal8Bit(), name.toLocal8Bit(), path.toLocal8Bit(), newName.toLocal8Bit());
+                    file << log_str;
+                    file.close();
+                }
+                name = newName;
+            }
+
+            fixFileName (name, true);
             childPath = usprintf("%s/%s", path.toLocal8Bit(), name.toLocal8Bit());
         }
         result = recursiveDump(childIndex, childPath, dumpMode, sectionType, guid);
